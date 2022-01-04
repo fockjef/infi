@@ -68,12 +68,23 @@ toys = Object.entries(toys)
         toyName,
         numParts: Object.values(parts).reduce( ( sum, x) => sum + x)
     }))
-    .sort( ( a, b) => b.numParts - a.numParts);
+    .sort( ( a, b) => b.numParts - a.numParts); // sort by numParts in descending order
 
 let part1 = toys[0].numParts;
 let part2 = (function findCombos( toys, numToys, numParts){
-    if( toys.length == 0 ) return null;
-    if( toys[0].numParts * numToys == numParts ) return [toys[0].toyName[0].repeat(numToys)];
+    let avgParts = numParts / numToys;
+    // IMPORTANT: requires that toys are sorted by number of parts in descending order
+    // provides a massive speedup by short circuiting needless recursion calls
+    // if numToys is large, only checking toys.length will result in terrible performance
+    // for numToys = 70, only checking toys.length takes over 2 minutes to run
+    // but by also checking against the avgParts runtime is sub 10ms!
+    // even with numToys = 1,000,000, runtime is still ~1 second.
+    if(
+        toys.length == 0 || // still have parts but no toys are left
+        toys[0].numParts < avgParts || // cannot reach numParts, even with largest numParts left
+        toys[toys.length-1].numParts > avgParts // cannot use less than numParts, even with smallest numParts left
+    ) return null;
+    if( toys[0].numParts == avgParts ) return [toys[0].toyName[0].repeat(numToys)];
     for( let i = 0; i < numToys; i++ ){
         let nP = i * toys[0].numParts;
         if( nP < numParts ){
