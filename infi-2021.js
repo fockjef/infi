@@ -1,99 +1,128 @@
-const input =
-`555009 onderdelen missen
-Lightsaber: 31 Batterij, 2 Unobtanium
-HandheldComputer: 7 Batterij, 61 Printplaat, 67 Plastic
-ElectrischeRacebaan: 47 AutoChassis, 71 Printplaat, 7 Plastic, 61 Batterij, 97 Wiel
-QuadDrone: 23 Accu, 73 Plastic, 61 Printplaat
-PikachuPlushy: 31 Batterij
-Trampoline: 97 Schokdemper, 17 IJzer
-BatmobileReplica: 43 BatmobileChassis, 89 Schokdemper, 73 Unobtanium, 53 Wiel
-DanceDanceRevolutionMat: 47 Schokdemper, 3 Batterij
-Printplaat: 71 Hars, 71 Koper, 61 Chip, 31 Led
-Accu: 59 Batterij
-Schokdemper: 73 IJzer, 2 Staal
-Batterij: 29 Staal
-BatmobileChassis: 41 AutoChassis, 2 Staal
-AutoChassis: 31 IJzer
-Wiel: 71 Rubber, 19 IJzer
-Unobtanium: 7 IJzer, 29 Kryptonite`;
+let input = "location" in globalThis && location.href.startsWith("https://infiaoc.azurewebsites.net/api/aoc/input/2021/")
+	? document.body.innerText.trim() // run directly from dev console of puzzle input url
+	: `492634 onderdelen missen
+Lightsaber: 61 Batterij, 19 Unobtanium
+HandheldComputer: 31 Batterij, 71 Printplaat, 47 Plastic
+ElectrischeRacebaan: 31 AutoChassis, 89 Printplaat, 59 Plastic, 31 Batterij, 3 Wiel
+QuadDrone: 59 Accu, 23 Plastic, 59 Printplaat
+PikachuPlushy: 59 Batterij
+Trampoline: 73 Schokdemper, 97 IJzer
+BatmobileReplica: 71 BatmobileChassis, 17 Schokdemper, 7 Unobtanium, 73 Wiel
+DanceDanceRevolutionMat: 79 Schokdemper, 53 Batterij
+Printplaat: 41 Hars, 67 Koper, 41 Chip, 59 Led
+Accu: 17 Batterij
+Schokdemper: 17 IJzer, 89 Staal
+Batterij: 41 Staal
+BatmobileChassis: 3 AutoChassis, 19 Staal
+AutoChassis: 13 IJzer
+Wiel: 79 Rubber, 59 IJzer
+Unobtanium: 29 IJzer, 29 Kryptonite`;
 
-let data = input.split(/\n/);
-
-/*
-create toys object:
-{
-    toyName1 : { partName1: <number>, partName2, <number> ...},
-    toyName2 : { partName2: <number>, partName3, <number> ...},
-    ...
-}
-note: partNames may also be toyNames
-*/
-toys = data.slice(1).reduce( ( toys, desc) => {
-    let [ toyName, parts] = desc.split(/\s*:\s*/);
-    toys[toyName] = {};
-    parts.split(/\s*,\s*/).forEach( item => {
-        let [ cnt, part] = item.split(/\s+/);
-        toys[toyName][part] = +cnt;
-    });
-    return toys;
-}, {});
-
-/*
-replace any partName that is also a toyName with the corresponding
-number of parts from the associated toyName
-*/
-Object.keys(toys).forEach( toyName => {
-    let parts = toys[toyName];
-    Object.values(toys).forEach( partList => {
-        if( toyName in partList ){
-            let cnt = partList[toyName];
-            Object.keys(parts).forEach( p => partList[p] = (partList[p]||0) + cnt * parts[p]);
-            delete partList[toyName];
-            delete toys[toyName];
-        }
-    });
-});
-
-/*
-convert toys object into an array of objects with each toys name and total number of parts
-sort the array by number of parts descending:
-[
-    { toyName: toyName1, numParts: <number> },
-    { toyName: toyName2, numParts: <number> },
-    ...
-]
-*/
-toys = Object.entries(toys)
-    .map( ([ toyName, parts]) => ({
-        toyName,
-        numParts: Object.values(parts).reduce( ( sum, x) => sum + x)
-    }))
-    .sort( ( a, b) => b.numParts - a.numParts); // sort by numParts in descending order
-
-let part1 = toys[0].numParts;
-let part2 = (function findCombos( toys, numToys, numParts){
-    let avgParts = numParts / numToys;
-    // IMPORTANT: requires that toys are sorted by number of parts in descending order
-    // provides a massive speedup by short circuiting needless recursion calls
-    // if numToys is large, only checking toys.length will result in terrible performance
-    // for numToys = 70, only checking toys.length takes over 2 minutes to run
-    // but by also checking against the avgParts runtime is sub 10ms!
-    // even with numToys = 1,000,000, runtime is still ~1 second.
-    if(
-        toys.length == 0 || // still have parts but no toys are left
-        toys[0].numParts < avgParts || // cannot reach numParts, even with largest numParts left
-        toys[toys.length-1].numParts > avgParts // cannot use less than numParts, even with smallest numParts left
-    ) return null;
-    if( toys[0].numParts == avgParts ) return [toys[0].toyName[0].repeat(numToys)];
-    for( let i = 0; i < numToys; i++ ){
-        let nP = i * toys[0].numParts;
-        if( nP < numParts ){
-            let combo = findCombos( toys.slice(1), numToys - i, numParts - nP);
-            if( combo ) return i == 0 ? combo : [ ...combo, toys[0].toyName[0].repeat(i)];
-        }
-    }
-    return null;
-})( toys, 20, parseInt(data[0]) /* <-- number of missing parts */).sort().join("");
+let numPartsUsed = parseInt(input),
+    toys = getToys_v2(input).sort( ( a, b) => b.numParts - a.numParts),
+	part1 = toys[0].numParts,
+	part2 = findToyCombination( toys, 20, numPartsUsed).sort().join("");
 
 console.log(`infi@nerd-pc ~/aoc2021 ▶ ${part1}`);
 console.log(`infi@nerd-pc ~/aoc2021 ▶ ${part2}`);
+
+function getToys_v1(input){
+	/*
+	create toys object:
+	{
+		toyName1 : { partName1: <number>, partName2, <number> ...},
+		toyName2 : { partName2: <number>, partName3, <number> ...},
+		...
+	}
+	note: partNames may also be toyNames
+	*/
+	toys = input.split(/\n/).slice(1).reduce( ( toys, desc) => {
+		let [ toyName, parts] = desc.split(/\s*:\s*/);
+		toys[toyName] = {};
+		parts.split(/\s*,\s*/).forEach( item => {
+			let [ cnt, part] = item.split(/\s+/);
+			toys[toyName][part] = +cnt;
+		});
+		return toys;
+	}, {});
+
+	/*
+	replace any partName that is also a toyName with the corresponding
+	number of parts from the associated toyName
+	*/
+	Object.keys(toys).forEach( toyName => {
+		let parts = toys[toyName];
+		Object.values(toys).forEach( partList => {
+			if( toyName in partList ){
+				let cnt = partList[toyName];
+				Object.keys(parts).forEach( p => partList[p] = (partList[p]||0) + cnt * parts[p]);
+				delete partList[toyName];
+				delete toys[toyName];
+			}
+		});
+	});
+
+	/*
+	convert toys object into an array of objects with each toys name and total number of parts
+	sort the array by number of parts descending:
+	[
+		{ toyName: toyName1, numParts: <number> },
+		{ toyName: toyName2, numParts: <number> },
+		...
+	]
+	*/
+	return Object.entries(toys)
+		.map( ([ toyName, parts]) => ({
+			toyName,
+			numParts: Object.values(parts).reduce( ( sum, x) => sum + x)
+		}));
+}
+
+/* 
+regex's _and_ eval? this might be against the geneva conventions
+converts partslist into numerical expression.
+example:
+73 Schokdemper, 97 IJzer ->
+73*(17 IJzer, 89 Staal), 97 IJzer ->
+73*(17+89)+97, which is then "eval"-ed
+*/
+function getToys_v2(input){
+	const reToyInfo = /^\w+: .*/mg;
+	input.match(reToyInfo).forEach( info => {
+		let [ toyName, parts] = info.split(":"),
+			reToyName = new RegExp( `(\\d+) ${toyName}\\b`, "g");
+		if( reToyName.test(input) ){
+			input = input.replace( reToyName, `$1*(${parts})`).replace( info, "");
+		}
+	});
+	return input.match(reToyInfo).map( info => ({
+		toyName: info.split(":")[0],
+		numParts: eval(info.split(":")[1].replace( /,/g, "+").replace( /[a-z ]/ig, ""))
+	}));
+}
+
+/*
+IMPORTANT: requires that toys are sorted by number of parts in descending order
+provides a massive speedup by short circuiting needless recursion calls
+if numWrapped is large, only checking toys.length will result in terrible performance
+for numWrapped = 70, only checking toys.length takes over 2 minutes to run
+but by also checking against the avgParts runtime is sub 10ms!
+even with numWrapped = 1,000,000, runtime is still ~1 second.
+*/
+function findToyCombination( toys, numWrapped, numPartsUsed){
+    let avgParts = numPartsUsed / numWrapped;
+    if(
+        toys.length == 0 || // still have parts but no toys are left
+        toys[0].numParts < avgParts || // cannot reach numPartsUsed, even with largest numPartsUsed left
+        toys[toys.length-1].numParts > avgParts // cannot use less than numPartsUsed, even with smallest numPartsUsed left
+    ) return null;
+    if( toys[0].numParts == avgParts ) return [toys[0].toyName[0].repeat(numWrapped)];
+    for( let n = 0; n < numWrapped; n++ ){
+        let nP = n * toys[0].numParts;
+        if( nP < numPartsUsed ){
+            let combo = findToyCombination( toys.slice(1), numWrapped - n, numPartsUsed - nP);
+            if( combo ) return n == 0 ? combo : [ ...combo, toys[0].toyName[0].repeat(n)];
+        }
+    }
+    return null;
+}
